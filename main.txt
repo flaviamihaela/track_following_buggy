@@ -1,0 +1,124 @@
+#include "mbed.h"
+#include "QEI.h"
+#include "Motors.h"
+#include "OneWire_Methods.h"
+#include "ds2781.h"
+#include "Encoder.h"
+#define PI 3.14159265358979323846
+#define CENTRE 0.153
+#define KT 0.007
+#define GR 18.75
+#define WHEEL_RADIUS 0.040
+#define PERIOD 0.00005
+
+DigitalInOut one_wire_pin(PC_14); //Pin for battery sensors, must be InOut as it transfers and receives data.
+Motors AB(PB_13, PB_1, PC_10, PC_12, PC_11); // PWM1, PWM2, Bipolar1, Bipolar2, Enable.
+QEI* Enc_A = new QEI(PA_13,PA_14, NC, 256, QEI::X4_ENCODING);
+QEI* Enc_B = new QEI(PC_8,PC_6, NC, 256, QEI::X4_ENCODING);
+Encoder Encoders(Enc_A, Enc_B);
+
+float calcDC (float speed) {
+    int VoltageReading; 
+    float VBatt;
+    VoltageReading = ReadVoltage();
+    VBatt = VoltageReading*0.00976;
+    return ((KT * (speed/WHEEL_RADIUS) * GR) + VBatt) / (2.0 * VBatt);
+}
+
+void Controller (float RefSpeedL, float RefSpeedR, float Kp, float Ki, float Kd) {
+        float outL, outR, currentL, currentR, errorL, errorR, dt, cumErrorL, cumErrorR, rateErrorL, rateErrorR, DCL = 0.5, DCR = 0.5, lastErrorL, lastErrorR, previousTime = 0, currentTime=0, count = 0;
+        Timer t;
+        t.start(); //Start timer
+        while (1) {  
+            wait(PERIOD); //
+            
+            currentL = Encoders.GetSpeedL();
+            currentR = Encoders.GetSpeedR();
+            errorL = RefSpeedL - currentL;
+            errorR = RefSpeedR - currentR;
+            
+            currentTime = t.read_us()/1000000.0;
+            dt = currentTime - previousTime;
+            cumErrorL += (double) errorL * dt;
+            cumErrorR += (double) errorR * dt;
+            //rateErrorL = (double) ((errorL - lastErrorL) / dt);
+            //rateErrorR = (double) ((errorR - lastErrorR) / dt);
+            
+            
+            outL =  (Kp * errorL) + (Ki * cumErrorL) + (Kd * rateErrorL) + RefSpeedL;
+            outR =  (Kp * errorR) + (Ki * cumErrorR) + (Kd * rateErrorR) + RefSpeedR; 
+            
+            DCL = calcDC(outL);
+            DCR = calcDC(outR);  
+            
+            //lastErrorL = errorL;
+            //lastErrorR = errorR;
+            previousTime = currentTime;
+            
+            if(count>10000) {
+                count = 0;
+                cumErrorL = 0;
+                cumErrorR = 0;
+            }
+            
+            if (DCL > 1) {
+              DCL = 1;
+              }
+            else if (DCR > 1) {
+              DCR = 1; 
+              }
+            else if (DCL < 0) {
+              DCL = 0;
+              }
+            else if (DCR < 0) {
+              DCR = 0; 
+              }  
+            
+              
+            AB.setSpeed(DCL,DCR); // L and R
+            
+            lcd.locate(55,3);
+            lcd.printf("DCR: %.3lf", DCR);
+            lcd.locate(55,14);
+            lcd.printf("DCL: %.3lf", DCL);  
+            lcd.locate(0,3);
+            lcd.printf("Right: %.3lf", currentR);
+            lcd.locate(0,14);
+            lcd.printf("Left: %.3lf", currentL);     
+        }
+}
+
+void forward(void) {
+       while (Encoders.GetPulsesR() > -1785) {
+        AB.setSpeed(0.72,0.3);
+    }
+        AB.setSpeed(0.5,0.5);
+}
+    
+void turn90R(void) {
+    while (Encoders.GetPulsesR() > -1315) {
+        AB.setSpeed(0.25,0.25);
+    }
+        AB.setSpeed(0.5,0.5);
+} 
+    
+void turn90L(void) {
+    while (Encoders.GetPulsesL() < 1180) {
+        AB.setSpeed(0.82,0.82);
+        }
+        AB.setSpeed(0.5,0.5);
+    }        
+    
+void turn180(void) {
+    while (Encoders.GetPulsesR() > -2380) {
+        AB.setSpeed(0.25,0.25);
+    }
+        AB.setSpeed(0.5,0.5);
+}      
+
+int main() {
+    AB.setFreq(20000);
+    AB.setSpeed(0.5,0.5);
+    Controller(0.7,-0.7,0.2,0.4,0);
+    
+};
