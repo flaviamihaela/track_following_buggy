@@ -1,33 +1,49 @@
-#ifndef MOTORS_H
+#ifndef MOTORS_H // Preprocessor directive to ensure this file is only included once in a single compilation.
 #define MOTORS_H
-#define PI 3.14159265358979323846
 
+#define PI 3.14159265358979323846 // Define the constant PI for use in calculations, if needed.
+
+// Define the Motors class to control and manage motor operations.
 class Motors {
-    protected:
-        PwmOut pwm1;
-        PwmOut pwm2;// CONNECT TO PIN 3 & 6, JP1a respectively. pwm1 and pwm2 objects to interact with MDB.
-        DigitalOut control1, control2, enable; //Digital pins to interact with MDB.
-        float frequency, period, speed_A, speed_B;
-    public:
-        Motors(PinName PWM1, PinName PWM2, PinName ctrl1, PinName ctrl2, PinName ena) : pwm1(PWM1), pwm2(PWM2), control1(ctrl1), control2(ctrl2), enable(ena) { //Constructor to create a bipolar Motor object with specified pins.
-            control1 = 1; //Set to Bipolar Mode of operation.
-            control2 = 1;
-            enable = 1;
-            pwm1.write(0.5);
-            pwm2.write(0.5);
-        }
-        void setFreq(float freq) {
-            frequency = freq;
-            period = 1/frequency;
-             pwm1.period(period);
-             pwm2.period(period);
-        }  
-        void setSpeed(float dr1, float dr2) {
-           
-            pwm1.write(dr1);
-            
-            pwm2.write(dr2);
-        }
+protected:
+    // PWM (Pulse Width Modulation) outputs for controlling motor speed.
+    PwmOut pwm1; // Connects to a pin, used for controlling the speed of Motor A.
+    PwmOut pwm2; // Connects to another pin, used for controlling the speed of Motor B.
+    // Digital outputs for setting the motor driver behavior.
+    DigitalOut control1; // Control pin 1 for motor driver, used in setting motor operation mode.
+    DigitalOut control2; // Control pin 2 for motor driver, similar purpose as control1.
+    DigitalOut enable; // Enable pin for the motor driver, used to enable/disable the motor operation.
+
+    // Variables for storing frequency and speed related information.
+    float frequency; // Frequency of the PWM signal.
+    float period; // Period of the PWM signal, inverse of the frequency.
+    float speed_A; // Variable to store the speed setting for Motor A.
+    float speed_B; // Variable to store the speed setting for Motor B.
+
+public:
+    // Constructor for the Motors class, initializing motor control pins and setting initial conditions.
+    Motors(PinName PWM1, PinName PWM2, PinName ctrl1, PinName ctrl2, PinName ena)
+    : pwm1(PWM1), pwm2(PWM2), control1(ctrl1), control2(ctrl2), enable(ena) { // Initialize the pins.
+        control1 = 1; // Set motor driver to Bipolar Mode of operation for control pin 1.
+        control2 = 1; // Set motor driver to Bipolar Mode of operation for control pin 2.
+        enable = 1;   // Enable the motor driver.
+        pwm1.write(0.5); // Initialize PWM1 with a 50% duty cycle, effectively stopping the motor if it's centered around 0.
+        pwm2.write(0.5); // Initialize PWM2 with a 50% duty cycle, same as above.
+    }
+
+    // Function to set the frequency of the PWM signals controlling the motors.
+    void setFreq(float freq) {
+        frequency = freq; // Store the specified frequency.
+        period = 1 / frequency; // Calculate the period from the frequency.
+        pwm1.period(period); // Set the period for PWM1.
+        pwm2.period(period); // Set the period for PWM2.
+    }  
+
+    // Function to set the speed of the motors by adjusting the duty cycle of the PWM signals.
+    void setSpeed(float dr1, float dr2) {
+        pwm1.write(dr1); // Set the duty cycle for Motor A's PWM, controlling its speed.
+        pwm2.write(dr2); // Set the duty cycle for Motor B's PWM, controlling its speed.
+    }
 };
 
-#endif
+#endif // End of the preprocessor conditional to ensure the class definition is only included once.

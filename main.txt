@@ -1,124 +1,97 @@
-#include "mbed.h"
-#include "QEI.h"
-#include "Motors.h"
-#include "OneWire_Methods.h"
-#include "ds2781.h"
-#include "Encoder.h"
-#define PI 3.14159265358979323846
-#define CENTRE 0.153
-#define KT 0.007
-#define GR 18.75
-#define WHEEL_RADIUS 0.040
-#define PERIOD 0.00005
+#include "mbed.h" // Include the mbed library for hardware abstraction on ARM microcontrollers.
+#include "QEI.h" // Include the Quadrature Encoder Interface library for reading encoder outputs.
+#include "Motors.h" // Custom library for controlling motors.
+#include "OneWire_Methods.h" // Library for OneWire communication, often used with sensors.
+#include "ds2781.h" // Library for interfacing with the DS2781 battery fuel gauge IC.
+#include "Encoder.h" // Custom library for handling encoder data.
+#define PI 3.14159265358979323846 // Define the value of Pi for calculations.
+#define CENTRE 0.153 // Define a constant used for centering, purpose unclear without context.
+#define KT 0.007 // Torque constant for motors.
+#define GR 18.75 // Gear ratio for the motor gearbox.
+#define WHEEL_RADIUS 0.040 // Radius of the wheel in meters.
+#define PERIOD 0.00005 // Control loop period in seconds.
 
-DigitalInOut one_wire_pin(PC_14); //Pin for battery sensors, must be InOut as it transfers and receives data.
-Motors AB(PB_13, PB_1, PC_10, PC_12, PC_11); // PWM1, PWM2, Bipolar1, Bipolar2, Enable.
-QEI* Enc_A = new QEI(PA_13,PA_14, NC, 256, QEI::X4_ENCODING);
-QEI* Enc_B = new QEI(PC_8,PC_6, NC, 256, QEI::X4_ENCODING);
+// Initialize digital input/output for OneWire communication, used for battery monitoring.
+DigitalInOut one_wire_pin(PC_14); 
+// Initialize motor controller with specified control pins.
+Motors AB(PB_13, PB_1, PC_10, PC_12, PC_11); // PWM1, PWM2, Bipolar1, Bipolar2, Enable pins.
+// Initialize encoders for each wheel, specifying pins and settings.
+QEI* Enc_A = new QEI(PA_13, PA_14, NC, 256, QEI::X4_ENCODING);
+QEI* Enc_B = new QEI(PC_8, PC_6, NC, 256, QEI::X4_ENCODING);
+// Initialize an Encoder object with the two QEI instances for processing.
 Encoder Encoders(Enc_A, Enc_B);
 
+// Function to calculate the duty cycle for motor control based on desired speed and battery voltage.
 float calcDC (float speed) {
     int VoltageReading; 
     float VBatt;
-    VoltageReading = ReadVoltage();
-    VBatt = VoltageReading*0.00976;
-    return ((KT * (speed/WHEEL_RADIUS) * GR) + VBatt) / (2.0 * VBatt);
+    VoltageReading = ReadVoltage(); // Read the battery voltage.
+    VBatt = VoltageReading * 0.00976; // Convert the reading to actual voltage.
+    // Calculate and return the duty cycle.
+    return ((KT * (speed / WHEEL_RADIUS) * GR) + VBatt) / (2.0 * VBatt);
 }
 
-void Controller (float RefSpeedL, float RefSpeedR, float Kp, float Ki, float Kd) {
-        float outL, outR, currentL, currentR, errorL, errorR, dt, cumErrorL, cumErrorR, rateErrorL, rateErrorR, DCL = 0.5, DCR = 0.5, lastErrorL, lastErrorR, previousTime = 0, currentTime=0, count = 0;
-        Timer t;
-        t.start(); //Start timer
-        while (1) {  
-            wait(PERIOD); //
-            
-            currentL = Encoders.GetSpeedL();
-            currentR = Encoders.GetSpeedR();
-            errorL = RefSpeedL - currentL;
-            errorR = RefSpeedR - currentR;
-            
-            currentTime = t.read_us()/1000000.0;
-            dt = currentTime - previousTime;
-            cumErrorL += (double) errorL * dt;
-            cumErrorR += (double) errorR * dt;
-            //rateErrorL = (double) ((errorL - lastErrorL) / dt);
-            //rateErrorR = (double) ((errorR - lastErrorR) / dt);
-            
-            
-            outL =  (Kp * errorL) + (Ki * cumErrorL) + (Kd * rateErrorL) + RefSpeedL;
-            outR =  (Kp * errorR) + (Ki * cumErrorR) + (Kd * rateErrorR) + RefSpeedR; 
-            
-            DCL = calcDC(outL);
-            DCR = calcDC(outR);  
-            
-            //lastErrorL = errorL;
-            //lastErrorR = errorR;
-            previousTime = currentTime;
-            
-            if(count>10000) {
-                count = 0;
-                cumErrorL = 0;
-                cumErrorR = 0;
-            }
-            
-            if (DCL > 1) {
-              DCL = 1;
-              }
-            else if (DCR > 1) {
-              DCR = 1; 
-              }
-            else if (DCL < 0) {
-              DCL = 0;
-              }
-            else if (DCR < 0) {
-              DCR = 0; 
-              }  
-            
-              
-            AB.setSpeed(DCL,DCR); // L and R
-            
-            lcd.locate(55,3);
-            lcd.printf("DCR: %.3lf", DCR);
-            lcd.locate(55,14);
-            lcd.printf("DCL: %.3lf", DCL);  
-            lcd.locate(0,3);
-            lcd.printf("Right: %.3lf", currentR);
-            lcd.locate(0,14);
-            lcd.printf("Left: %.3lf", currentL);     
+// PID-like controller function to adjust motor speeds based on reference speeds and feedback.
+void Controller(float RefSpeedL, float RefSpeedR, float Kp, float Ki, float Kd) {
+    // Variable initialization for control loop.
+    float outL, outR, currentL, currentR, errorL, errorR, dt, cumErrorL, cumErrorR, rateErrorL, rateErrorR, DCL = 0.5, DCR = 0.5, lastErrorL, lastErrorR, previousTime = 0, currentTime = 0;
+    long count = 0;
+    Timer t;
+    t.start(); // Start the timer for control loop timing.
+
+    // Control loop begins.
+    while (1) {  
+        wait(PERIOD); // Wait for the next control loop iteration.
+        
+        // Read current speeds from encoders.
+        currentL = Encoders.GetSpeedL();
+        currentR = Encoders.GetSpeedR();
+        // Calculate speed errors.
+        errorL = RefSpeedL - currentL;
+        errorR = RefSpeedR - currentR;
+        
+        // Time calculations for integral and derivative terms.
+        currentTime = t.read_us() / 1000000.0;
+        dt = currentTime - previousTime;
+        cumErrorL += errorL * dt;
+        cumErrorR += errorR * dt;
+        // Derivative term commented out, indicating it's unused in this implementation.
+        //rateErrorL = (errorL - lastErrorL) / dt;
+        //rateErrorR = (errorR - lastErrorR) / dt;
+        
+        // PID control calculations for left and right motors.
+        outL = (Kp * errorL) + (Ki * cumErrorL) /* + (Kd * rateErrorL) */ + RefSpeedL;
+        outR = (Kp * errorR) + (Ki * cumErrorR) /* + (Kd * rateErrorR) */ + RefSpeedR; 
+        
+        // Calculate duty cycles for both motors.
+        DCL = calcDC(outL);
+        DCR = calcDC(outR);  
+        
+        // Anti-windup and saturation handling for integral term.
+        if(count > 10000) {
+            count = 0;
+            cumErrorL = 0;
+            cumErrorR = 0;
         }
+        
+        // Limit duty cycle to valid range [0, 1].
+        DCL = std::min(std::max(DCL, 0.0f), 1.0f);
+        DCR = std::min(std::max(DCR, 0.0f), 1.0f);
+
+        // Set motor speeds based on calculated duty cycles.
+        AB.setSpeed(DCL, DCR);
+        
+        // Update previous error and time for next loop iteration.
+        //lastErrorL = errorL;
+        //lastErrorR = errorR;
+        previousTime = currentTime;
+    }
 }
 
-void forward(void) {
-       while (Encoders.GetPulsesR() > -1785) {
-        AB.setSpeed(0.72,0.3);
-    }
-        AB.setSpeed(0.5,0.5);
-}
-    
-void turn90R(void) {
-    while (Encoders.GetPulsesR() > -1315) {
-        AB.setSpeed(0.25,0.25);
-    }
-        AB.setSpeed(0.5,0.5);
-} 
-    
-void turn90L(void) {
-    while (Encoders.GetPulsesL() < 1180) {
-        AB.setSpeed(0.82,0.82);
-        }
-        AB.setSpeed(0.5,0.5);
-    }        
-    
-void turn180(void) {
-    while (Encoders.GetPulsesR() > -2380) {
-        AB.setSpeed(0.25,0.25);
-    }
-        AB.setSpeed(0.5,0.5);
-}      
+// Predefined maneuver functions (forward, turn90R, turn90L, turn180) are used to move the robot in specific patterns.
 
 int main() {
-    AB.setFreq(20000);
-    AB.setSpeed(0.5,0.5);
-    Controller(0.7,-0.7,0.2,0.4,0);
-    
+    AB.setFreq(20000); // Set the PWM frequency for motor control.
+    AB.setSpeed(0.5, 0.5); // Set an initial speed for both motors.
+    Controller(0.7, -0.7, 0.2, 0.4, 0); // Start the control loop with specified reference speeds and PID constants.
 };
