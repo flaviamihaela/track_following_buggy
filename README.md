@@ -15,7 +15,52 @@ PID is used with analogue inputs.
 - Control two motors with adjustable speeds.
 - Set motor operation modes through digital control signals.
 - Configure PWM signal frequency to suit motor specifications.
-- Easy integration with various microcontroller units (MCUs) supporting the mbed framework.
+- Estimate wheel speed from quadrature encoder pulses
+
+## Usage
+
+Tuning PERIOD: controls loop rate.
+
+Tuning KT: sets torque constant of motor (Nm/A).
+
+Tuning GR: sets gear ratio.
+
+Tuning WHEEL_RADIUS: sets radius of wheel in meters.
+
+Kp, Ki, Kd: sets PID controller gains for closed-loop control.
+
+RefSpeedL/R: sets reference wheel speeds (m/s).
+
+PWM frequency: AB.setFreq(), sets PWM drive frequency (Hz).
+
+Note: If using a different board, change pin definitions in code.
+
+## Build & Run
+
+1. Clone the repository to your local machine.
+
+2. Navigate to the task directory.
+
+3. Set target board and toolchain (replace as needed)
+
+```bash
+>> mbed target NUCLEO_F401RE
+>> mbed toolchain GCC_ARM
+```
+
+4. Compile
+
+```bash
+>> mbed compile -f
+```
+
+5. Connect board via USB, drag and drop the .bin file onto drive (code auto-flashes and begins running)
+
+## Dependencies
+
+- Mbed OS
+- QEI library
+- OneWire & ds2781 drivers
 
 
 
