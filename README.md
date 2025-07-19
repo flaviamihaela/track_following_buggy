@@ -44,6 +44,7 @@ Note: If using a different board, change pin definitions in code.
 3. Set target board and toolchain (replace as needed)
 
 ```bash
+>> mbed new . 
 >> mbed target NUCLEO_F401RE
 >> mbed toolchain GCC_ARM
 ```
@@ -58,9 +59,10 @@ Note: If using a different board, change pin definitions in code.
 
 ## Dependencies
 
-- Mbed OS
+- Mbed OS, Mbed CLI 1, Toolchain GCC_ARM
 - QEI library
-- OneWire & ds2781 drivers
+- OneWire & DS2781 drivers
+- STM32 Nucleo board + Shield
 
 
 
