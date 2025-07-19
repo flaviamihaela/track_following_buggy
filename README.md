@@ -62,7 +62,7 @@ Note: If using a different board, change pin definitions in code.
 - Mbed OS, Mbed CLI 1, Toolchain GCC_ARM
 - QEI library
 - OneWire & DS2781 drivers
-- STM32 Nucleo board + Shield
+- STM32 Mbed board, Mbed Application Shield, USB cable
 
 
 
